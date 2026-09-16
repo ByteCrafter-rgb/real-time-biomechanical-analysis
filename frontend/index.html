@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Biomechanical Analysis</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <header>
+        <div>
+            <h1>Biomechanical Analysis</h1>
+            <p>Real-time movement analysis</p>
+        </div>
+
+        <div class="status">
+            <span class="dot"></span>
+            LIVE
+        </div>
+    </header>
+
+
+    <main>
+
+        <!-- LEFT: CAMERA -->
+        <section class="camera-panel">
+
+            <div class="panel-header">
+                <span>Live Camera</span>
+                <span class="camera-status">Tracking</span>
+            </div>
+
+            <div class="camera-container">
+                <video id="camera" autoplay playsinline></video>
+
+                <div class="camera-overlay">
+                    <span>● CAMERA</span>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- RIGHT: ANALYSIS -->
+        <section class="analysis-panel">
+
+            <div class="panel-header">
+                <span>Analysis</span>
+                <span>Live</span>
+            </div>
+
+
+            <div class="metric-card">
+                <div class="metric-title">
+                    Knee Flexion
+                </div>
+
+                <div class="metric-values">
+                    <div>
+                        <small>LEFT</small>
+                        <strong>42°</strong>
+                    </div>
+
+                    <div>
+                        <small>RIGHT</small>
+                        <strong>39°</strong>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="chart-card">
+                <div class="metric-title">
+                    Knee Angle
+                </div>
+
+                <div class="fake-chart">
+                    <div class="chart-line"></div>
+                </div>
+
+                <div class="chart-label">
+                    Angle over time
+                </div>
+            </div>
+
+
+            <div class="angles-card">
+
+                <div class="metric-title">
+                    Joint Angles
+                </div>
+
+                <div class="angle-row">
+                    <span>Elbow</span>
+                    <span>18° / 21°</span>
+                </div>
+
+                <div class="angle-row">
+                    <span>Shoulder</span>
+                    <span>34° / 31°</span>
+                </div>
+
+                <div class="angle-row">
+                    <span>Hip</span>
+                    <span>22° / 24°</span>
+                </div>
+
+                <div class="angle-row">
+                    <span>Ankle</span>
+                    <span>8° / 10°</span>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <footer>
+
+        <span>● Tracking</span>
+        <span>31 FPS</span>
+        <span>18 ms inference</span>
+        <span>29 ms end-to-end</span>
+
+    </footer>
+
+    <script>
+    async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
+
+            const video = document.getElementById("camera");
+            video.srcObject = stream;
+
+        } catch (error) {
+            console.error("Could not access camera:", error);
+        }
+    }
+
+    startCamera();
+</script>
+</body>
+</html>

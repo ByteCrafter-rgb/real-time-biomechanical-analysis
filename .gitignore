@@ -1,0 +1,8 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node / Electron
+node_modules/
+npm-debug.log*
