@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
     <title>Biomechanical Analysis</title>
     <link rel="stylesheet" href="style.css" />
 </head>
@@ -33,11 +36,16 @@
             </div>
 
             <div class="camera-container">
-                <video id="camera" autoplay playsinline></video>
+
+                <img
+                    id="camera"
+                    alt="Live camera feed"
+                />
 
                 <div class="camera-overlay">
                     <span>● CAMERA</span>
                 </div>
+
             </div>
 
         </section>
@@ -52,64 +60,176 @@
             </div>
 
 
+            <!-- KNEE FLEXION -->
             <div class="metric-card">
+
                 <div class="metric-title">
                     Knee Flexion
                 </div>
 
                 <div class="metric-values">
+
                     <div>
                         <small>LEFT</small>
-                        <strong>42°</strong>
+
+                        <strong id="left-knee">
+                            --°
+                        </strong>
                     </div>
 
                     <div>
                         <small>RIGHT</small>
-                        <strong>39°</strong>
+
+                        <strong id="right-knee">
+                            --°
+                        </strong>
                     </div>
+
                 </div>
+
             </div>
 
 
+            <!-- KNEE ANGLE CHART -->
             <div class="chart-card">
+
                 <div class="metric-title">
                     Knee Angle
                 </div>
 
-                <div class="fake-chart">
-                    <div class="chart-line"></div>
+                <div
+                    class="fake-chart"
+                    id="knee-chart"
+                >
+
+                    <canvas
+                        id="knee-chart-canvas"
+                    ></canvas>
+
                 </div>
 
                 <div class="chart-label">
                     Angle over time
                 </div>
+
             </div>
 
 
+            <!-- JOINT ANGLES -->
             <div class="angles-card">
 
                 <div class="metric-title">
                     Joint Angles
                 </div>
 
+
+                <!-- ELBOW -->
                 <div class="angle-row">
-                    <span>Elbow</span>
-                    <span>18° / 21°</span>
+
+                    <span>
+                        Elbow
+                    </span>
+
+                    <span>
+                        <span id="left-elbow">
+                            --°
+                        </span>
+
+                        /
+
+                        <span id="right-elbow">
+                            --°
+                        </span>
+                    </span>
+
                 </div>
 
+
+                <!-- SHOULDER FLEXION -->
                 <div class="angle-row">
-                    <span>Shoulder</span>
-                    <span>34° / 31°</span>
+
+                    <span>
+                        Shoulder Flexion
+                    </span>
+
+                    <span>
+                        <span id="left-shoulder-flexion">
+                            --°
+                        </span>
+
+                        /
+
+                        <span id="right-shoulder-flexion">
+                            --°
+                        </span>
+                    </span>
+
                 </div>
 
+
+                <!-- SHOULDER ABDUCTION -->
                 <div class="angle-row">
-                    <span>Hip</span>
-                    <span>22° / 24°</span>
+
+                    <span>
+                        Shoulder Abduction
+                    </span>
+
+                    <span>
+                        <span id="left-shoulder-abduction">
+                            --°
+                        </span>
+
+                        /
+
+                        <span id="right-shoulder-abduction">
+                            --°
+                        </span>
+                    </span>
+
                 </div>
 
+
+                <!-- HIP -->
                 <div class="angle-row">
-                    <span>Ankle</span>
-                    <span>8° / 10°</span>
+
+                    <span>
+                        Hip Flexion
+                    </span>
+
+                    <span>
+                        <span id="left-hip-flexion">
+                            --°
+                        </span>
+
+                        /
+
+                        <span id="right-hip-flexion">
+                            --°
+                        </span>
+                    </span>
+
+                </div>
+
+
+                <!-- ANKLE -->
+                <div class="angle-row">
+
+                    <span>
+                        Ankle
+                    </span>
+
+                    <span>
+                        <span id="left-ankle-flexion">
+                            --°
+                        </span>
+
+                        /
+
+                        <span id="right-ankle-flexion">
+                            --°
+                        </span>
+                    </span>
+
                 </div>
 
             </div>
@@ -119,32 +239,724 @@
     </main>
 
 
+    <!-- FOOTER -->
     <footer>
 
-        <span>● Tracking</span>
-        <span>31 FPS</span>
-        <span>18 ms inference</span>
-        <span>29 ms end-to-end</span>
+        <span>
+            ● Tracking
+        </span>
+
+        <span>
+            31 FPS
+        </span>
+
+        <span>
+            18 ms inference
+        </span>
+
+        <span>
+            29 ms end-to-end
+        </span>
 
     </footer>
 
+
     <script>
-    async function startCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: false
-            });
 
-            const video = document.getElementById("camera");
-            video.srcObject = stream;
+        // --------------------------------------------------
+        // DOM ELEMENTS
+        // --------------------------------------------------
 
-        } catch (error) {
-            console.error("Could not access camera:", error);
+        const camera =
+            document.getElementById("camera");
+
+
+        // Knee
+
+        const leftKnee =
+            document.getElementById("left-knee");
+
+        const rightKnee =
+            document.getElementById("right-knee");
+
+
+        // Elbow
+
+        const leftElbow =
+            document.getElementById("left-elbow");
+
+        const rightElbow =
+            document.getElementById("right-elbow");
+
+
+        // Shoulder flexion
+
+        const leftShoulderFlexion =
+            document.getElementById(
+                "left-shoulder-flexion"
+            );
+
+        const rightShoulderFlexion =
+            document.getElementById(
+                "right-shoulder-flexion"
+            );
+
+
+        // Shoulder abduction
+
+        const leftShoulderAbduction =
+            document.getElementById(
+                "left-shoulder-abduction"
+            );
+
+        const rightShoulderAbduction =
+            document.getElementById(
+                "right-shoulder-abduction"
+            );
+        
+        const leftHipFlexion =
+            document.getElementById(
+                "left-hip-flexion"
+            );
+
+        const rightHipFlexion =
+            document.getElementById(
+                "right-hip-flexion"
+            );
+
+        const leftAnkleFlexion =
+            document.getElementById(
+                "left-ankle-flexion"
+            );
+
+        const rightAnkleFlexion =
+            document.getElementById(
+                "right-ankle-flexion"
+            );
+
+        // Chart
+
+        const chartContainer =
+            document.getElementById(
+                "knee-chart"
+            );
+
+        const canvas =
+            document.getElementById(
+                "knee-chart-canvas"
+            );
+
+        const ctx =
+            canvas.getContext("2d");
+
+
+        // --------------------------------------------------
+        // CHART DATA
+        // --------------------------------------------------
+
+        const MAX_POINTS = 100;
+
+        const leftKneeHistory = [];
+
+        const rightKneeHistory = [];
+
+
+        // --------------------------------------------------
+        // RESIZE CHART
+        // --------------------------------------------------
+
+        function resizeChart() {
+
+            const rect =
+                chartContainer.getBoundingClientRect();
+
+            const devicePixelRatio =
+                window.devicePixelRatio || 1;
+
+            canvas.width =
+                rect.width *
+                devicePixelRatio;
+
+            canvas.height =
+                rect.height *
+                devicePixelRatio;
+
+            canvas.style.width =
+                `${rect.width}px`;
+
+            canvas.style.height =
+                `${rect.height}px`;
+
+            ctx.setTransform(
+                devicePixelRatio,
+                0,
+                0,
+                devicePixelRatio,
+                0,
+                0
+            );
+
+            drawChart();
         }
-    }
 
-    startCamera();
-</script>
+
+        window.addEventListener(
+            "resize",
+            resizeChart
+        );
+
+
+        // --------------------------------------------------
+        // ADD CHART DATA
+        // --------------------------------------------------
+
+        function addChartPoint(
+            history,
+            value
+        ) {
+
+            if (
+                value === null ||
+                value === undefined ||
+                !Number.isFinite(
+                    Number(value)
+                )
+            ) {
+                return;
+            }
+
+            history.push(
+                Number(value)
+            );
+
+            if (
+                history.length >
+                MAX_POINTS
+            ) {
+                history.shift();
+            }
+        }
+
+
+        // --------------------------------------------------
+        // DRAW CHART
+        // --------------------------------------------------
+
+        function drawChart() {
+
+            const width =
+                chartContainer.clientWidth;
+
+            const height =
+                chartContainer.clientHeight;
+
+            if (
+                width <= 0 ||
+                height <= 0
+            ) {
+                return;
+            }
+
+            ctx.clearRect(
+                0,
+                0,
+                width,
+                height
+            );
+
+
+            // ----------------------------------------------
+            // CHART SETTINGS
+            // ----------------------------------------------
+
+            const paddingLeft = 30;
+
+            const paddingRight = 8;
+
+            const paddingTop = 8;
+
+            const paddingBottom = 18;
+
+            const chartWidth =
+                width -
+                paddingLeft -
+                paddingRight;
+
+            const chartHeight =
+                height -
+                paddingTop -
+                paddingBottom;
+
+
+            // ----------------------------------------------
+            // ANGLE RANGE
+            // ----------------------------------------------
+
+            const minAngle = 0;
+
+            const maxAngle = 180;
+
+
+            // ----------------------------------------------
+            // GRID
+            // ----------------------------------------------
+
+            ctx.strokeStyle =
+                "#292e36";
+
+            ctx.lineWidth = 1;
+
+            const gridAngles = [
+                0,
+                45,
+                90,
+                135,
+                180
+            ];
+
+
+            gridAngles.forEach(
+                (angle) => {
+
+                    const y =
+                        paddingTop +
+                        chartHeight *
+                        (
+                            1 -
+                            (
+                                angle /
+                                maxAngle
+                            )
+                        );
+
+                    ctx.beginPath();
+
+                    ctx.moveTo(
+                        paddingLeft,
+                        y
+                    );
+
+                    ctx.lineTo(
+                        width -
+                        paddingRight,
+                        y
+                    );
+
+                    ctx.stroke();
+
+
+                    ctx.fillStyle =
+                        "#626a75";
+
+                    ctx.font =
+                        "9px Arial";
+
+                    ctx.fillText(
+                        `${angle}°`,
+                        2,
+                        y + 3
+                    );
+
+                }
+            );
+
+
+            // ----------------------------------------------
+            // DRAW LINE
+            // ----------------------------------------------
+
+            function drawLine(
+                history,
+                lineColor
+            ) {
+
+                if (
+                    history.length < 2
+                ) {
+                    return;
+                }
+
+                ctx.strokeStyle =
+                    lineColor;
+
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+
+
+                history.forEach(
+                    (value, index) => {
+
+                        const x =
+                            paddingLeft +
+                            (
+                                index /
+                                (
+                                    MAX_POINTS -
+                                    1
+                                )
+                            ) *
+                            chartWidth;
+
+
+                        const clampedValue =
+                            Math.max(
+                                minAngle,
+                                Math.min(
+                                    maxAngle,
+                                    value
+                                )
+                            );
+
+
+                        const y =
+                            paddingTop +
+                            chartHeight *
+                            (
+                                1 -
+                                (
+                                    clampedValue /
+                                    maxAngle
+                                )
+                            );
+
+
+                        if (
+                            index === 0
+                        ) {
+
+                            ctx.moveTo(
+                                x,
+                                y
+                            );
+
+                        } else {
+
+                            ctx.lineTo(
+                                x,
+                                y
+                            );
+
+                        }
+
+                    }
+                );
+
+
+                ctx.stroke();
+
+            }
+
+
+            // Left knee
+
+            drawLine(
+                leftKneeHistory,
+                "#4f9cff"
+            );
+
+
+            // Right knee
+
+            drawLine(
+                rightKneeHistory,
+                "#38d27b"
+            );
+
+
+            // ----------------------------------------------
+            // LEGEND
+            // ----------------------------------------------
+
+            ctx.font =
+                "9px Arial";
+
+
+            ctx.fillStyle =
+                "#4f9cff";
+
+            ctx.fillText(
+                "L",
+                width - 35,
+                12
+            );
+
+
+            ctx.fillStyle =
+                "#38d27b";
+
+            ctx.fillText(
+                "R",
+                width - 20,
+                12
+            );
+
+        }
+
+
+        // --------------------------------------------------
+        // UPDATE ANGLE
+        // --------------------------------------------------
+
+        function updateAngle(
+            element,
+            value
+        ) {
+
+            if (
+                value === null ||
+                value === undefined ||
+                !Number.isFinite(
+                    Number(value)
+                )
+            ) {
+
+                element.textContent =
+                    "--°";
+
+                return;
+            }
+
+            element.textContent =
+                `${Number(value).toFixed(1)}°`;
+
+        }
+
+
+        // --------------------------------------------------
+        // CONNECT TO PYTHON
+        // --------------------------------------------------
+
+        function connectToPython() {
+
+            const socket =
+                new WebSocket(
+                    "ws://localhost:8765"
+                );
+
+            socket.binaryType = "blob";
+
+
+            // ----------------------------------------------
+            // CONNECTION OPEN
+            // ----------------------------------------------
+
+            socket.onopen = () => {
+
+                console.log(
+                    "Connected to Python"
+                );
+
+                socket.send(
+                    "Hello Python"
+                );
+
+            };
+
+
+            // ----------------------------------------------
+            // RECEIVE DATA
+            // ----------------------------------------------
+
+            socket.onmessage = (
+                event
+            ) => {
+
+
+                // ------------------------------------------
+                // CAMERA FRAME
+                // ------------------------------------------
+
+                if (
+                    event.data instanceof Blob
+                ) {
+
+                    const imageUrl =
+                        URL.createObjectURL(
+                            event.data
+                        );
+
+                    camera.src =
+                        imageUrl;
+
+                    return;
+                }
+
+
+                // ------------------------------------------
+                // JSON DATA
+                // ------------------------------------------
+
+                try {
+
+                    const data =
+                        JSON.parse(
+                            event.data
+                        );
+
+
+                    // --------------------------------------
+                    // ANGLE DATA
+                    // --------------------------------------
+
+                    if (
+                        data.type === "angles"
+                    ) {
+
+
+                        // ------------------------------
+                        // KNEE
+                        // ------------------------------
+
+                        updateAngle(
+                            leftKnee,
+                            data.left_knee
+                        );
+
+                        updateAngle(
+                            rightKnee,
+                            data.right_knee
+                        );
+
+
+                        // ------------------------------
+                        // ELBOW
+                        // ------------------------------
+
+                        updateAngle(
+                            leftElbow,
+                            data.left_elbow
+                        );
+
+                        updateAngle(
+                            rightElbow,
+                            data.right_elbow
+                        );
+
+
+                        // ------------------------------
+                        // SHOULDER FLEXION
+                        // ------------------------------
+
+                        updateAngle(
+                            leftShoulderFlexion,
+                            data.left_shoulder_flexion
+                        );
+
+                        updateAngle(
+                            rightShoulderFlexion,
+                            data.right_shoulder_flexion
+                        );
+
+
+                        // ------------------------------
+                        // SHOULDER ABDUCTION
+                        // ------------------------------
+
+                        updateAngle(
+                            leftShoulderAbduction,
+                            data.left_shoulder_abduction
+                        );
+
+                        updateAngle(
+                            rightShoulderAbduction,
+                            data.right_shoulder_abduction
+                        );
+                        
+                        updateAngle(
+                            leftHipFlexion,
+                            data.left_hip_flexion
+                        );
+
+                        updateAngle(
+                            rightHipFlexion,
+                            data.right_hip_flexion
+                        );
+
+                        updateAngle(
+                            leftAnkleFlexion,
+                            data.left_ankle_flexion
+                        );
+
+                        updateAngle(
+                            rightAnkleFlexion,
+                            data.right_ankle_flexion
+                        );
+
+                        // ------------------------------
+                        // KNEE GRAPH
+                        // ------------------------------
+
+                        addChartPoint(
+                            leftKneeHistory,
+                            data.left_knee
+                        );
+
+                        addChartPoint(
+                            rightKneeHistory,
+                            data.right_knee
+                        );
+
+                        drawChart();
+
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "Invalid message from Python:",
+                        error
+                    );
+
+                }
+
+            };
+
+
+            // ----------------------------------------------
+            // CONNECTION CLOSED
+            // ----------------------------------------------
+
+            socket.onclose = () => {
+
+                console.log(
+                    "Python connection closed. Retrying..."
+                );
+
+                setTimeout(
+                    connectToPython,
+                    1000
+                );
+
+            };
+
+
+            // ----------------------------------------------
+            // CONNECTION ERROR
+            // ----------------------------------------------
+
+            socket.onerror = () => {
+
+                console.error(
+                    "WebSocket error"
+                );
+
+                socket.close();
+
+            };
+
+        }
+
+
+        // --------------------------------------------------
+        // INITIALIZE
+        // --------------------------------------------------
+
+        resizeChart();
+
+        connectToPython();
+
+    </script>
+
 </body>
 </html>

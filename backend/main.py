@@ -1,288 +1,439 @@
+import asyncio
 import cv2
-import mediapipe as mp
-import os
+import time
+
+from pose.detector import PoseDetector
+from pose.skeleton import draw_skeleton
+
+from biomechanics.elbow import calculate_elbow_flexion
+from biomechanics.knee import calculate_knee_flexion
+from biomechanics.shoulder import (
+    calculate_shoulder_flexion,
+    calculate_shoulder_abduction,
+)
+from biomechanics.hip import calculate_hip_flexion
+from biomechanics.ankle import calculate_ankle_flexion
+from biomechanics.filter import ExponentialMovingAverage
+from communication.websocket_server import WebSocketServer
 
 
 # ============================================================
-# SETTINGS
+# CONFIGURATION
 # ============================================================
 
-USE_WEBCAM = True
-
-INPUT_VIDEO = "validation/input/squat.mp4"
-OUTPUT_VIDEO = "validation/output/squat_skeleton.mp4"
-MODEL_PATH = "models/pose_landmarker_full.task"
+MODEL_PATH = "../models/pose_landmarker_full.task"
 
 
 # ============================================================
-# MEDIAPIPE
+# FRAME ENCODING
 # ============================================================
 
-BaseOptions = mp.tasks.BaseOptions
-PoseLandmarker = mp.tasks.vision.PoseLandmarker
-PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
-RunningMode = mp.tasks.vision.RunningMode
+def encode_frame(frame):
+    """
+    Convert an OpenCV frame into JPEG bytes
+    for sending to Electron.
+    """
 
-
-def create_landmarker():
-    base_options = BaseOptions(
-        model_asset_path=MODEL_PATH
+    success, encoded = cv2.imencode(
+        ".jpg",
+        frame,
+        [
+            cv2.IMWRITE_JPEG_QUALITY,
+            70,
+        ],
     )
 
-    options = PoseLandmarkerOptions(
-        base_options=base_options,
-        running_mode=RunningMode.VIDEO,
-        num_poses=1,
+    if not success:
+        return None
+
+    return encoded.tobytes()
+
+
+# ============================================================
+# MAIN PIPELINE
+# ============================================================
+
+def run_analysis(detector, websocket):
+    """
+    Main real-time biomechanics pipeline.
+
+    Webcam
+        ↓
+    Pose detection
+        ↓
+    3D landmarks
+        ↓
+    Joint calculations
+        ↓
+    Electron
+    """
+
+    print(
+        "Starting biomechanics analysis...",
+        flush=True,
     )
 
-    return PoseLandmarker.create_from_options(options)
+    left_elbow_filter = ExponentialMovingAverage(alpha=0.3)
+    right_elbow_filter = ExponentialMovingAverage(alpha=0.3)
 
+    left_knee_filter = ExponentialMovingAverage(alpha=0.3)
+    right_knee_filter = ExponentialMovingAverage(alpha=0.3)
 
-# ============================================================
-# DRAW SKELETON
-# ============================================================
+    left_shoulder_flexion_filter = ExponentialMovingAverage(alpha=0.3)
+    right_shoulder_flexion_filter = ExponentialMovingAverage(alpha=0.3)
 
-def draw_skeleton(frame, landmarks):
-    height, width = frame.shape[:2]
+    left_shoulder_abduction_filter = ExponentialMovingAverage(alpha=0.3)
+    right_shoulder_abduction_filter = ExponentialMovingAverage(alpha=0.3)
 
-    # MediaPipe Pose connections
-    connections = [
-        (0, 1), (1, 2), (2, 3), (3, 7),
-        (0, 4), (4, 5), (5, 6), (6, 8),
+    left_hip_filter = ExponentialMovingAverage(alpha=0.3)
+    right_hip_filter = ExponentialMovingAverage(alpha=0.3)
 
-        (9, 10),
+    left_ankle_filter = ExponentialMovingAverage(alpha=0.3)
+    right_ankle_filter = ExponentialMovingAverage(alpha=0.3)
 
-        (11, 12),
+    while True:
 
-        (11, 13), (13, 15),
-        (15, 17), (15, 19), (15, 21),
+        # ----------------------------------------------------
+        # GET FRAME + POSE
+        # ----------------------------------------------------
 
-        (12, 14), (14, 16),
-        (16, 18), (16, 20), (16, 22),
+        frame, result = detector.read()
 
-        (11, 23),
-        (12, 24),
-        (23, 24),
+        if frame is None:
+            print(
+                "Could not read webcam frame.",
+                flush=True,
+            )
+            break
 
-        (23, 25), (25, 27),
-        (27, 29), (29, 31),
+        # ----------------------------------------------------
+        # PROCESS POSE
+        # ----------------------------------------------------
 
-        (24, 26), (26, 28),
-        (28, 30), (30, 32),
-    ]
+        if result.pose_landmarks:
 
-    # Draw bones
-    for start_idx, end_idx in connections:
+            landmarks = result.pose_landmarks[0]
 
-        start = landmarks[start_idx]
-        end = landmarks[end_idx]
-
-        start_point = (
-            int(start.x * width),
-            int(start.y * height)
-        )
-
-        end_point = (
-            int(end.x * width),
-            int(end.y * height)
-        )
-
-        cv2.line(
-            frame,
-            start_point,
-            end_point,
-            (0, 255, 0),
-            2,
-        )
-
-    # Draw joints
-    for landmark in landmarks:
-
-        x = int(landmark.x * width)
-        y = int(landmark.y * height)
-
-        cv2.circle(
-            frame,
-            (x, y),
-            4,
-            (0, 0, 255),
-            -1,
-        )
-
-
-# ============================================================
-# WEBCAM MODE
-# ============================================================
-
-def run_webcam():
-
-    cap = cv2.VideoCapture(0)
-
-    if not cap.isOpened():
-        print("Could not open webcam.")
-        return
-
-    print("Webcam started.")
-    print("Press Q to quit.")
-
-    with create_landmarker() as landmarker:
-
-        frame_number = 0
-
-        while True:
-
-            success, frame = cap.read()
-
-            if not success:
-                print("Could not read webcam frame.")
-                break
-
-            rgb_frame = cv2.cvtColor(
+            # Draw skeleton
+            draw_skeleton(
                 frame,
-                cv2.COLOR_BGR2RGB
+                landmarks,
             )
 
-            mp_image = mp.Image(
-                image_format=mp.ImageFormat.SRGB,
-                data=rgb_frame
-            )
+            # ------------------------------------------------
+            # 3D WORLD LANDMARKS
+            # ------------------------------------------------
 
-            # Webcam timestamps must increase
-            timestamp_ms = int(
-                frame_number * 1000 / 30
-            )
+            if result.pose_world_landmarks:
 
-            result = landmarker.detect_for_video(
-                mp_image,
-                timestamp_ms
-            )
-
-            if result.pose_landmarks:
-
-                landmarks = result.pose_landmarks[0]
-
-                draw_skeleton(
-                    frame,
-                    landmarks
+                world = (
+                    result.pose_world_landmarks[0]
                 )
 
-            cv2.imshow(
-                "Biomechanical Analysis",
-                frame
-            )
+                # ============================================
+                # ELBOW LANDMARKS
+                # ============================================
 
-            # Press Q to quit
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+                left_shoulder = world[11]
+                left_elbow = world[13]
+                left_wrist = world[15]
 
-            frame_number += 1
+                right_shoulder = world[12]
+                right_elbow = world[14]
+                right_wrist = world[16]
 
-    cap.release()
-    cv2.destroyAllWindows()
+                # ============================================
+                # KNEE LANDMARKS
+                # ============================================
 
+                left_hip = world[23]
+                left_knee = world[25]
+                left_ankle = world[27]
 
-# ============================================================
-# VIDEO MODE
-# ============================================================
+                right_hip = world[24]
+                right_knee = world[26]
+                right_ankle = world[28]
 
-def run_video():
+                # ============================================
+                # ELBOW ANGLES
+                # ============================================
 
-    cap = cv2.VideoCapture(INPUT_VIDEO)
-
-    if not cap.isOpened():
-        print(f"Could not open video: {INPUT_VIDEO}")
-        return
-
-    width = int(
-        cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    )
-
-    height = int(
-        cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    )
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-
-    print(f"Video size: {width} x {height}")
-    print(f"Video FPS: {fps}")
-
-    os.makedirs(
-        "validation/output",
-        exist_ok=True
-    )
-
-    fourcc = cv2.VideoWriter_fourcc(
-        *"mp4v"
-    )
-
-    writer = cv2.VideoWriter(
-        OUTPUT_VIDEO,
-        fourcc,
-        fps,
-        (width, height)
-    )
-
-    with create_landmarker() as landmarker:
-
-        frame_number = 0
-
-        while True:
-
-            success, frame = cap.read()
-
-            if not success:
-                break
-
-            rgb_frame = cv2.cvtColor(
-                frame,
-                cv2.COLOR_BGR2RGB
-            )
-
-            mp_image = mp.Image(
-                image_format=mp.ImageFormat.SRGB,
-                data=rgb_frame
-            )
-
-            timestamp_ms = int(
-                frame_number * 1000 / fps
-            )
-
-            result = landmarker.detect_for_video(
-                mp_image,
-                timestamp_ms
-            )
-
-            if result.pose_landmarks:
-
-                landmarks = result.pose_landmarks[0]
-
-                draw_skeleton(
-                    frame,
-                    landmarks
+                left_elbow_angle = calculate_elbow_flexion(
+                    left_shoulder,
+                    left_elbow,
+                    left_wrist,
                 )
 
-            writer.write(frame)
+                right_elbow_angle = calculate_elbow_flexion(
+                    right_shoulder,
+                    right_elbow,
+                    right_wrist,
+                )
 
-            frame_number += 1
+                if left_elbow_angle is not None:
+                    print(
+                        f"Elbow | Left: {left_elbow_angle:.1f}°",
+                        flush=True,
+                    )
 
-    cap.release()
-    writer.release()
+                if right_elbow_angle is not None:
+                    print(
+                        f"Elbow | Right: {right_elbow_angle:.1f}°",
+                        flush=True,
+                    )
 
-    print("Finished!")
-    print(f"Output: {OUTPUT_VIDEO}")
+                # ============================================
+                # KNEE ANGLES
+                # ============================================
+
+                left_knee_angle = calculate_knee_flexion(
+                    left_hip,
+                    left_knee,
+                    left_ankle,
+                )
+
+                right_knee_angle = calculate_knee_flexion(
+                    right_hip,
+                    right_knee,
+                    right_ankle,
+                )
+
+                left_shoulder_flexion = calculate_shoulder_flexion(
+                    left_hip,
+                    left_shoulder,
+                    left_elbow,
+                )
+
+                right_shoulder_flexion = calculate_shoulder_flexion(
+                    right_hip,
+                    right_shoulder,
+                    right_elbow,
+                )
+
+                left_shoulder_abduction = calculate_shoulder_abduction(
+                    left_shoulder,
+                    left_elbow,
+                    left_hip,
+                )
+
+                right_shoulder_abduction = calculate_shoulder_abduction(
+                    right_shoulder,
+                    right_elbow,
+                    right_hip,
+                )
+
+                left_hip_flexion = calculate_hip_flexion(
+                    left_shoulder,
+                    left_hip,
+                    left_knee,
+                )
+
+                right_hip_flexion = calculate_hip_flexion(
+                    right_shoulder,
+                    right_hip,
+                    right_knee,
+                )
+
+                left_ankle_flexion = calculate_ankle_flexion(
+                    left_knee,
+                    left_ankle,
+                    world[31],
+                )
+
+                right_ankle_flexion = calculate_ankle_flexion(
+                    right_knee,
+                    right_ankle,
+                    world[32],
+                )
+
+                # ============================================
+                # Apply Filters
+                # ============================================
+                
+                left_elbow_angle = left_elbow_filter.update(
+                    left_elbow_angle
+                )
+
+                right_elbow_angle = right_elbow_filter.update(
+                    right_elbow_angle
+                )
+
+                left_knee_angle = left_knee_filter.update(
+                    left_knee_angle
+                )
+
+                right_knee_angle = right_knee_filter.update(
+                    right_knee_angle
+                )
+
+                left_shoulder_flexion = (
+                    left_shoulder_flexion_filter.update(
+                        left_shoulder_flexion
+                    )
+                )
+
+                right_shoulder_flexion = (
+                    right_shoulder_flexion_filter.update(
+                        right_shoulder_flexion
+                    )
+                )
+
+                left_shoulder_abduction = (
+                    left_shoulder_abduction_filter.update(
+                        left_shoulder_abduction
+                    )
+                )
+
+                right_shoulder_abduction = (
+                    right_shoulder_abduction_filter.update(
+                        right_shoulder_abduction
+                    )
+                )
+
+                left_hip_flexion = left_hip_filter.update(
+                    left_hip_flexion
+                )
+
+                right_hip_flexion = right_hip_filter.update(
+                    right_hip_flexion
+                )
+
+                left_ankle_flexion = left_ankle_filter.update(
+                    left_ankle_flexion
+                )
+
+                right_ankle_flexion = right_ankle_filter.update(
+                    right_ankle_flexion
+                )
+
+                # ============================================
+                # SEND MEASUREMENTS
+                # ============================================
+
+                websocket.send_angles(
+                    {
+                        "left_elbow": left_elbow_angle,
+                        "right_elbow": right_elbow_angle,
+
+                        "left_knee": left_knee_angle,
+                        "right_knee": right_knee_angle,
+
+                        "left_shoulder_flexion": left_shoulder_flexion,
+                        "right_shoulder_flexion": right_shoulder_flexion,
+
+                        "left_shoulder_abduction": left_shoulder_abduction,
+                        "right_shoulder_abduction": right_shoulder_abduction,
+
+                        "left_hip_flexion": left_hip_flexion,
+                        "right_hip_flexion": right_hip_flexion,
+
+                        "left_ankle_flexion": left_ankle_flexion,
+                        "right_ankle_flexion": right_ankle_flexion,
+                    }
+                )
+
+                # ============================================
+                # TERMINAL OUTPUT
+                # ============================================
+
+                if (
+                    left_elbow_angle is not None
+                    and right_elbow_angle is not None
+                ):
+
+                    print(
+                        f"Elbow | "
+                        f"Left: {left_elbow_angle:.1f}° | "
+                        f"Right: {right_elbow_angle:.1f}°",
+                        flush=True,
+                    )
+
+        # ----------------------------------------------------
+        # SEND PROCESSED FRAME
+        # ----------------------------------------------------
+
+        frame_bytes = encode_frame(frame)
+
+        if frame_bytes is not None:
+
+            websocket.send_frame(
+                frame_bytes
+            )
 
 
 # ============================================================
-# MAIN
+# APPLICATION
 # ============================================================
 
-def main():
+async def main():
+    start_time = time.perf_counter()
 
-    if USE_WEBCAM:
-        run_webcam()
-    else:
-        run_video()
+    print("Starting backend...", flush=True)
 
+    websocket = WebSocketServer(
+        host="localhost",
+        port=8765,
+    )
+
+    print(
+        f"WebSocket object created: "
+        f"{time.perf_counter() - start_time:.2f}s",
+        flush=True,
+    )
+
+    detector_start = time.perf_counter()
+
+    detector = PoseDetector(
+        MODEL_PATH
+    )
+
+    print(
+        f"PoseDetector initialized in "
+        f"{time.perf_counter() - detector_start:.2f}s",
+        flush=True,
+    )
+
+    websocket_start = time.perf_counter()
+
+    await websocket.start()
+
+    print(
+        f"WebSocket started in "
+        f"{time.perf_counter() - websocket_start:.2f}s",
+        flush=True,
+    )
+
+    print(
+        f"Total startup time: "
+        f"{time.perf_counter() - start_time:.2f}s",
+        flush=True,
+    )
+
+    try:
+        await asyncio.to_thread(
+            run_analysis,
+            detector,
+            websocket,
+        )
+    finally:
+        detector.close()
+
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
-    main()
+
+    try:
+
+        asyncio.run(
+            main()
+        )
+
+    except KeyboardInterrupt:
+
+        print(
+            "Backend stopped.",
+            flush=True,
+        )
