@@ -25,7 +25,6 @@ Electron acts as the desktop presentation layer.
 
 <!-- Add screenshot / GIF / short demo video here -->
 
----
 
 ## Running Locally
 
@@ -92,7 +91,7 @@ This keeps the application responsive and resulted in:
 
 **30–31 FPS end-to-end**
 
-Detailed measurements are available in [`PerformanceReport.md`](PerformanceReport.md).
+Detailed measurements are available in [`PerformanceReport.md`](/docs/PerformanceReport.md).
 
 ---
 
