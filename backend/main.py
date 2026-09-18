@@ -1,5 +1,6 @@
 import asyncio
 import cv2
+import os
 import time
 
 from pose.detector import PoseDetector
@@ -21,7 +22,11 @@ from communication.websocket_server import WebSocketServer
 # CONFIGURATION
 # ============================================================
 
-MODEL_PATH = "../models/pose_landmarker_full.task"
+MODEL_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "models",
+    "pose_landmarker_lite.task",
+)
 
 
 # ============================================================
@@ -61,9 +66,11 @@ def run_analysis(detector, websocket):
         ↓
     Pose detection
         ↓
-    3D landmarks
+    Skeleton + joint angles
         ↓
-    Joint calculations
+    EMA filtering
+        ↓
+    JPEG + WebSocket
         ↓
     Electron
     """
@@ -73,17 +80,29 @@ def run_analysis(detector, websocket):
         flush=True,
     )
 
+    # --------------------------------------------------------
+    # Filters
+    # --------------------------------------------------------
+
     left_elbow_filter = ExponentialMovingAverage(alpha=0.3)
     right_elbow_filter = ExponentialMovingAverage(alpha=0.3)
 
     left_knee_filter = ExponentialMovingAverage(alpha=0.3)
     right_knee_filter = ExponentialMovingAverage(alpha=0.3)
 
-    left_shoulder_flexion_filter = ExponentialMovingAverage(alpha=0.3)
-    right_shoulder_flexion_filter = ExponentialMovingAverage(alpha=0.3)
+    left_shoulder_flexion_filter = ExponentialMovingAverage(
+        alpha=0.3
+    )
+    right_shoulder_flexion_filter = ExponentialMovingAverage(
+        alpha=0.3
+    )
 
-    left_shoulder_abduction_filter = ExponentialMovingAverage(alpha=0.3)
-    right_shoulder_abduction_filter = ExponentialMovingAverage(alpha=0.3)
+    left_shoulder_abduction_filter = ExponentialMovingAverage(
+        alpha=0.3
+    )
+    right_shoulder_abduction_filter = ExponentialMovingAverage(
+        alpha=0.3
+    )
 
     left_hip_filter = ExponentialMovingAverage(alpha=0.3)
     right_hip_filter = ExponentialMovingAverage(alpha=0.3)
@@ -91,44 +110,45 @@ def run_analysis(detector, websocket):
     left_ankle_filter = ExponentialMovingAverage(alpha=0.3)
     right_ankle_filter = ExponentialMovingAverage(alpha=0.3)
 
+    # --------------------------------------------------------
+    # Main loop
+    # --------------------------------------------------------
+
     while True:
 
         # ----------------------------------------------------
-        # GET FRAME + POSE
+        # Get latest frame + pose
         # ----------------------------------------------------
 
         frame, result = detector.read()
 
         if frame is None:
-            print(
-                "Could not read webcam frame.",
-                flush=True,
-            )
-            break
+            continue
 
         # ----------------------------------------------------
-        # PROCESS POSE
+        # Process pose
         # ----------------------------------------------------
 
         if result.pose_landmarks:
 
             landmarks = result.pose_landmarks[0]
 
+            # ------------------------------------------------
             # Draw skeleton
+            # ------------------------------------------------
+
             draw_skeleton(
                 frame,
                 landmarks,
             )
 
             # ------------------------------------------------
-            # 3D WORLD LANDMARKS
+            # World landmarks
             # ------------------------------------------------
 
             if result.pose_world_landmarks:
 
-                world = (
-                    result.pose_world_landmarks[0]
-                )
+                world = result.pose_world_landmarks[0]
 
                 # ============================================
                 # ELBOW LANDMARKS
@@ -170,18 +190,6 @@ def run_analysis(detector, websocket):
                     right_wrist,
                 )
 
-                if left_elbow_angle is not None:
-                    print(
-                        f"Elbow | Left: {left_elbow_angle:.1f}°",
-                        flush=True,
-                    )
-
-                if right_elbow_angle is not None:
-                    print(
-                        f"Elbow | Right: {right_elbow_angle:.1f}°",
-                        flush=True,
-                    )
-
                 # ============================================
                 # KNEE ANGLES
                 # ============================================
@@ -197,6 +205,10 @@ def run_analysis(detector, websocket):
                     right_knee,
                     right_ankle,
                 )
+
+                # ============================================
+                # SHOULDER ANGLES
+                # ============================================
 
                 left_shoulder_flexion = calculate_shoulder_flexion(
                     left_hip,
@@ -222,6 +234,10 @@ def run_analysis(detector, websocket):
                     right_hip,
                 )
 
+                # ============================================
+                # HIP ANGLES
+                # ============================================
+
                 left_hip_flexion = calculate_hip_flexion(
                     left_shoulder,
                     left_hip,
@@ -233,6 +249,10 @@ def run_analysis(detector, websocket):
                     right_hip,
                     right_knee,
                 )
+
+                # ============================================
+                # ANKLE ANGLES
+                # ============================================
 
                 left_ankle_flexion = calculate_ankle_flexion(
                     left_knee,
@@ -247,9 +267,9 @@ def run_analysis(detector, websocket):
                 )
 
                 # ============================================
-                # Apply Filters
+                # Apply EMA filters
                 # ============================================
-                
+
                 left_elbow_angle = left_elbow_filter.update(
                     left_elbow_angle
                 )
@@ -307,7 +327,7 @@ def run_analysis(detector, websocket):
                 )
 
                 # ============================================
-                # SEND MEASUREMENTS
+                # Send measurements
                 # ============================================
 
                 websocket.send_angles(
@@ -318,38 +338,34 @@ def run_analysis(detector, websocket):
                         "left_knee": left_knee_angle,
                         "right_knee": right_knee_angle,
 
-                        "left_shoulder_flexion": left_shoulder_flexion,
-                        "right_shoulder_flexion": right_shoulder_flexion,
+                        "left_shoulder_flexion":
+                            left_shoulder_flexion,
 
-                        "left_shoulder_abduction": left_shoulder_abduction,
-                        "right_shoulder_abduction": right_shoulder_abduction,
+                        "right_shoulder_flexion":
+                            right_shoulder_flexion,
 
-                        "left_hip_flexion": left_hip_flexion,
-                        "right_hip_flexion": right_hip_flexion,
+                        "left_shoulder_abduction":
+                            left_shoulder_abduction,
 
-                        "left_ankle_flexion": left_ankle_flexion,
-                        "right_ankle_flexion": right_ankle_flexion,
+                        "right_shoulder_abduction":
+                            right_shoulder_abduction,
+
+                        "left_hip_flexion":
+                            left_hip_flexion,
+
+                        "right_hip_flexion":
+                            right_hip_flexion,
+
+                        "left_ankle_flexion":
+                            left_ankle_flexion,
+
+                        "right_ankle_flexion":
+                            right_ankle_flexion,
                     }
                 )
 
-                # ============================================
-                # TERMINAL OUTPUT
-                # ============================================
-
-                if (
-                    left_elbow_angle is not None
-                    and right_elbow_angle is not None
-                ):
-
-                    print(
-                        f"Elbow | "
-                        f"Left: {left_elbow_angle:.1f}° | "
-                        f"Right: {right_elbow_angle:.1f}°",
-                        flush=True,
-                    )
-
         # ----------------------------------------------------
-        # SEND PROCESSED FRAME
+        # Encode processed frame
         # ----------------------------------------------------
 
         frame_bytes = encode_frame(frame)
@@ -366,9 +382,13 @@ def run_analysis(detector, websocket):
 # ============================================================
 
 async def main():
+
     start_time = time.perf_counter()
 
-    print("Starting backend...", flush=True)
+    print(
+        "Starting backend...",
+        flush=True,
+    )
 
     websocket = WebSocketServer(
         host="localhost",
@@ -381,6 +401,10 @@ async def main():
         flush=True,
     )
 
+    # --------------------------------------------------------
+    # Pose detector
+    # --------------------------------------------------------
+
     detector_start = time.perf_counter()
 
     detector = PoseDetector(
@@ -392,6 +416,10 @@ async def main():
         f"{time.perf_counter() - detector_start:.2f}s",
         flush=True,
     )
+
+    # --------------------------------------------------------
+    # WebSocket
+    # --------------------------------------------------------
 
     websocket_start = time.perf_counter()
 
@@ -410,12 +438,15 @@ async def main():
     )
 
     try:
+
         await asyncio.to_thread(
             run_analysis,
             detector,
             websocket,
         )
+
     finally:
+
         detector.close()
 
 

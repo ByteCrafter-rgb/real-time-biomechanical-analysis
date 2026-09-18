@@ -1,13 +1,18 @@
 import cv2
 import mediapipe as mp
+import threading
 
 
 class PoseDetector:
     """
     Handles:
-    - Webcam capture
+    - Continuous webcam capture
     - MediaPipe Pose Landmarker
     - Pose inference
+
+    The webcam runs independently from pose inference.
+    Only the latest captured frame is kept, so stale frames
+    are dropped instead of building up a queue.
 
     This class does NOT:
     - Calculate joint angles
@@ -38,10 +43,6 @@ class PoseDetector:
                 "Could not open webcam."
             )
 
-        # We intentionally do not force the camera
-        # resolution here because doing so caused a
-        # significant startup delay on this system.
-
         actual_width = int(
             self.cap.get(
                 cv2.CAP_PROP_FRAME_WIDTH
@@ -59,6 +60,23 @@ class PoseDetector:
             f"{actual_width} x {actual_height}",
             flush=True,
         )
+
+        # ----------------------------------------------------
+        # Latest-frame buffer
+        # ----------------------------------------------------
+
+        self.latest_frame = None
+
+        self.frame_lock = threading.Lock()
+
+        self.running = True
+
+        self.capture_thread = threading.Thread(
+            target=self._capture_loop,
+            daemon=True,
+        )
+
+        self.capture_thread.start()
 
         # ----------------------------------------------------
         # MediaPipe Pose Landmarker
@@ -99,25 +117,53 @@ class PoseDetector:
             flush=True,
         )
 
+    # ========================================================
+    # CAMERA THREAD
+    # ========================================================
+
+    def _capture_loop(self):
+        """
+        Continuously capture frames from the webcam.
+
+        Only the newest frame is retained.
+        """
+
+        while self.running:
+
+            success, frame = self.cap.read()
+
+            if not success:
+                continue
+
+            with self.frame_lock:
+                self.latest_frame = frame
+
+    # ========================================================
+    # READ + INFERENCE
+    # ========================================================
+
     def read(self):
         """
-        Read one frame from the webcam and
+        Get the latest available webcam frame and
         run MediaPipe pose detection.
 
         Returns:
             frame, result
 
-        frame:
-            OpenCV BGR image.
-
-        result:
-            MediaPipe pose detection result.
+        If no frame is currently available, returns:
+            None, None
         """
 
-        success, frame = self.cap.read()
+        # ----------------------------------------------------
+        # Get latest frame
+        # ----------------------------------------------------
 
-        if not success:
-            return None, None
+        with self.frame_lock:
+
+            if self.latest_frame is None:
+                return None, None
+
+            frame = self.latest_frame.copy()
 
         # ----------------------------------------------------
         # BGR -> RGB
@@ -146,17 +192,28 @@ class PoseDetector:
             self.frame_timestamp_ms,
         )
 
-        # Approximately 30 FPS timestamp.
         self.frame_timestamp_ms += 33
 
         return frame, result
 
+    # ========================================================
+    # CLEANUP
+    # ========================================================
+
     def close(self):
         """
-        Release webcam and MediaPipe resources.
+        Stop camera capture and release resources.
         """
 
+        self.running = False
+
+        if self.capture_thread.is_alive():
+            self.capture_thread.join(
+                timeout=1.0
+            )
+
         self.cap.release()
+
         self.landmarker.close()
 
         print(

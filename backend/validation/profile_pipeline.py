@@ -37,7 +37,7 @@ MODEL_PATH = os.path.abspath(
         "..",
         "..",
         "models",
-        "pose_landmarker_full.task",
+        "pose_landmarker_lite.task",
     )
 )
 
