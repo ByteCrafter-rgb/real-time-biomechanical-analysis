@@ -1,26 +1,29 @@
 import pytest
+from types import SimpleNamespace
 
 from biomechanics.ankle import calculate_ankle_flexion
 
 
-class Landmark:
-    def __init__(self, x, y, z=0.0, visibility=1.0):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.visibility = visibility
+def landmark(x, y, z=0.0, visibility=1.0):
+    return SimpleNamespace(
+        x=x,
+        y=y,
+        z=z,
+        visibility=visibility,
+    )
 
 
 def test_neutral_ankle_is_zero_degrees():
     """
-    Knee -> Ankle -> Foot are perfectly straight.
+    Neutral ankle position.
 
-    Expected ankle flexion magnitude = 0°.
+    Lower leg and foot form approximately 90°.
+    Expected ankle angle = 0°.
     """
 
-    knee = Landmark(-1.0, 0.0, 0.0)
-    ankle = Landmark(0.0, 0.0, 0.0)
-    foot = Landmark(1.0, 0.0, 0.0)
+    knee = landmark(0.0, -1.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+    foot = landmark(1.0, 0.0, 0.0)
 
     angle = calculate_ankle_flexion(
         knee,
@@ -31,16 +34,16 @@ def test_neutral_ankle_is_zero_degrees():
     assert angle == pytest.approx(0.0)
 
 
-def test_90_degree_ankle_angle():
+def test_dorsiflexion_is_positive():
     """
-    Knee -> Ankle -> Foot form a 90° geometric angle.
+    Foot moves upward toward the shin.
 
-    Expected value from the current implementation = 90°.
+    Expected result: positive ankle angle.
     """
 
-    knee = Landmark(1.0, 0.0, 0.0)
-    ankle = Landmark(0.0, 0.0, 0.0)
-    foot = Landmark(0.0, 1.0, 0.0)
+    knee = landmark(0.0, -1.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+    foot = landmark(1.0, -1.0, 0.0)
 
     angle = calculate_ankle_flexion(
         knee,
@@ -48,19 +51,19 @@ def test_90_degree_ankle_angle():
         foot,
     )
 
-    assert angle == pytest.approx(90.0)
+    assert angle > 0
 
 
-def test_45_degree_ankle_angle():
+def test_plantarflexion_is_negative():
     """
-    Knee -> Ankle -> Foot form a 135° geometric angle.
+    Foot moves downward away from the shin.
 
-    Expected value from the current implementation = 45°.
+    Expected result: negative ankle angle.
     """
 
-    knee = Landmark(-1.0, 0.0, 0.0)
-    ankle = Landmark(0.0, 0.0, 0.0)
-    foot = Landmark(1.0, 1.0, 0.0)
+    knee = landmark(0.0, -1.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+    foot = landmark(1.0, 1.0, 0.0)
 
     angle = calculate_ankle_flexion(
         knee,
@@ -68,24 +71,112 @@ def test_45_degree_ankle_angle():
         foot,
     )
 
-    assert angle == pytest.approx(45.0)
+    assert angle < 0
+
+
+def test_20_degree_dorsiflexion():
+    """
+    Approximately 20° dorsiflexion.
+    """
+
+    import math
+
+    knee = landmark(0.0, -1.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+
+    foot = landmark(
+        math.cos(math.radians(20)),
+        -math.sin(math.radians(20)),
+        0.0,
+    )
+
+    angle = calculate_ankle_flexion(
+        knee,
+        ankle,
+        foot,
+    )
+
+    assert angle == pytest.approx(20.0, abs=0.5)
+
+
+def test_50_degree_plantarflexion():
+    """
+    Approximately 50° plantarflexion.
+    """
+
+    import math
+
+    knee = landmark(0.0, -1.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+
+    foot = landmark(
+        math.cos(math.radians(50)),
+        math.sin(math.radians(50)),
+        0.0,
+    )
+
+    angle = calculate_ankle_flexion(
+        knee,
+        ankle,
+        foot,
+    )
+
+    assert angle == pytest.approx(-50.0, abs=0.5)
 
 
 def test_ankle_returns_none_when_landmark_not_visible():
     """
-    The calculation should be unavailable when
-    a required landmark has insufficient visibility.
+    Measurement should be unavailable when a required
+    landmark has low visibility.
     """
 
-    knee = Landmark(
+    knee = landmark(
+        0.0,
         -1.0,
         0.0,
-        0.0,
-        visibility=0.4,
+        visibility=0.5,
     )
 
-    ankle = Landmark(0.0, 0.0, 0.0)
-    foot = Landmark(1.0, 0.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+    foot = landmark(1.0, 0.0, 0.0)
+
+    angle = calculate_ankle_flexion(
+        knee,
+        ankle,
+        foot,
+    )
+
+    assert angle is None
+
+
+def test_zero_length_knee_vector_returns_none():
+    """
+    Measurement should be unavailable if knee and ankle
+    occupy the same position.
+    """
+
+    knee = landmark(0.0, 0.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+    foot = landmark(1.0, 0.0, 0.0)
+
+    angle = calculate_ankle_flexion(
+        knee,
+        ankle,
+        foot,
+    )
+
+    assert angle is None
+
+
+def test_zero_length_foot_vector_returns_none():
+    """
+    Measurement should be unavailable if foot and ankle
+    occupy the same position.
+    """
+
+    knee = landmark(0.0, -1.0, 0.0)
+    ankle = landmark(0.0, 0.0, 0.0)
+    foot = landmark(0.0, 0.0, 0.0)
 
     angle = calculate_ankle_flexion(
         knee,

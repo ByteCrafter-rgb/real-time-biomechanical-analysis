@@ -1,28 +1,39 @@
-from .geometry import calculate_angle
-
+import math
 
 VISIBILITY_THRESHOLD = 0.6
 
 
-def calculate_ankle_flexion(
-    knee,
-    ankle,
-    foot_index,
-):
+def calculate_ankle_flexion(knee, ankle, foot_index):
     """
-    Calculate ankle plantarflexion/dorsiflexion.
+    Calculate ankle dorsiflexion / plantarflexion.
 
-    Points:
+    Goniometry convention:
+        0°   = neutral ankle position
+        +°   = dorsiflexion
+        -°   = plantarflexion
+
+    Reference:
+        Axis: lateral malleolus
+        Stationary arm: lateral aspect of leg
+        Moving arm: along the foot
+
+    Required landmarks:
         knee -> ankle -> foot_index
 
-    The ankle is the vertex.
+    Uses MediaPipe 3D world coordinates.
 
-    Convention:
-        0°  = neutral ankle position
-        Positive values represent dorsiflexion
-        Negative values represent plantarflexion.
+    Neutral ankle position is approximately 90° between
+    the lower-leg axis and foot axis.
 
-    Uses 3D world coordinates.
+    Assumption:
+        Subject is positioned approximately sideways to
+        the camera.
+
+    Note:
+        This is a pose-estimated biomechanical measurement,
+        not a clinically calibrated goniometer measurement.
+        Monocular pose estimation and landmark placement can
+        introduce residual measurement error.
     """
 
     if (
@@ -32,31 +43,56 @@ def calculate_ankle_flexion(
     ):
         return None
 
-    knee_point = (
-        knee.x,
-        knee.y,
-        knee.z,
+    # Vector from ankle toward knee.
+    knee_vector = (
+        knee.x - ankle.x,
+        knee.y - ankle.y,
+        knee.z - ankle.z,
     )
 
-    ankle_point = (
-        ankle.x,
-        ankle.y,
-        ankle.z,
+    # Vector from ankle toward foot.
+    foot_vector = (
+        foot_index.x - ankle.x,
+        foot_index.y - ankle.y,
+        foot_index.z - ankle.z,
     )
 
-    foot_point = (
-        foot_index.x,
-        foot_index.y,
-        foot_index.z,
+    knee_length = math.sqrt(
+        knee_vector[0] ** 2
+        + knee_vector[1] ** 2
+        + knee_vector[2] ** 2
     )
 
-    geometric_angle = calculate_angle(
-        knee_point,
-        ankle_point,
-        foot_point,
+    foot_length = math.sqrt(
+        foot_vector[0] ** 2
+        + foot_vector[1] ** 2
+        + foot_vector[2] ** 2
     )
 
-    if geometric_angle is None:
+    if knee_length == 0 or foot_length == 0:
         return None
 
-    return 180.0 - geometric_angle
+    # Geometric angle between the lower-leg and foot vectors.
+    dot_product = (
+        knee_vector[0] * foot_vector[0]
+        + knee_vector[1] * foot_vector[1]
+        + knee_vector[2] * foot_vector[2]
+    )
+
+    cosine = dot_product / (knee_length * foot_length)
+    cosine = max(-1.0, min(1.0, cosine))
+
+    geometric_angle = math.degrees(
+        math.acos(cosine)
+    )
+
+    # Convert the geometric angle to the anatomical
+    # dorsiflexion / plantarflexion convention.
+    #
+    # Neutral ankle ≈ 90° geometric angle.
+    #
+    #   geometric < 90° -> dorsiflexion (+)
+    #   geometric > 90° -> plantarflexion (-)
+    ankle_angle = 90.0 - geometric_angle
+
+    return ankle_angle

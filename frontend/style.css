@@ -6,8 +6,8 @@
 
 body {
     font-family: Arial, sans-serif;
-    background: #0b0d10;
-    color: #f5f7fa;
+    background: #121212;
+    color: #e6e6e6;
 
     height: 100vh;
     overflow: hidden;
@@ -29,8 +29,8 @@ header {
 
     padding: 0 32px;
 
-    border-bottom: 1px solid #252930;
-    background: #101318;
+    border-bottom: 1px solid #292929;
+    background: #181818;
 }
 
 header h1 {
@@ -40,7 +40,7 @@ header h1 {
 
 header p {
     margin-top: 5px;
-    color: #8d949e;
+    color: #858585;
     font-size: 13px;
 }
 
@@ -58,7 +58,7 @@ header p {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #38d27b;
+    background: #8fae8b;
 }
 
 
@@ -73,7 +73,7 @@ main {
 
     gap: 1px;
 
-    background: #252930;
+    background: #292929;
 }
 
 
@@ -81,7 +81,7 @@ main {
 
 .camera-panel,
 .analysis-panel {
-    background: #101318;
+    background: #181818;
     padding: 22px;
 
     min-height: 0;
@@ -105,7 +105,7 @@ main {
     margin-bottom: 16px;
 
     font-size: 13px;
-    color: #aeb5bf;
+    color: #a2a2a2;
 
     flex-shrink: 0;
 }
@@ -119,10 +119,10 @@ main {
 
     position: relative;
 
-    border: 1px solid #292e36;
+    border: 1px solid #303030;
     border-radius: 12px;
 
-    background: #080a0d;
+    background: #0d0d0d;
 
     overflow: hidden;
 }
@@ -144,19 +144,19 @@ main {
 
     padding: 7px 11px;
 
-    background: rgba(0, 0, 0, 0.65);
+    background: rgba(12, 12, 12, 0.72);
 
-    border: 1px solid #343a43;
+    border: 1px solid #3a3a3a;
     border-radius: 6px;
 
     font-size: 10px;
     letter-spacing: 1px;
 
-    color: #38d27b;
+    color: #b7c4b3;
 }
 
 .camera-status {
-    color: #38d27b;
+    color: #8fae8b;
 }
 
 
@@ -165,8 +165,8 @@ main {
 .metric-card,
 .chart-card,
 .angles-card {
-    background: #15191f;
-    border: 1px solid #292e36;
+    background: #202020;
+    border: 1px solid #303030;
     border-radius: 10px;
 
     padding: 18px;
@@ -176,7 +176,7 @@ main {
 
 .metric-title {
     font-size: 12px;
-    color: #858d98;
+    color: #858585;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -198,7 +198,7 @@ main {
 }
 
 .metric-values small {
-    color: #727a85;
+    color: #707070;
     font-size: 10px;
 }
 
@@ -215,7 +215,7 @@ main {
 
     margin-top: 16px;
 
-    border-bottom: 1px solid #292e36;
+    border-bottom: 1px solid #303030;
 
     position: relative;
 
@@ -237,7 +237,7 @@ main {
 
     left: -10%;
 
-    border-top: 2px solid #4f9cff;
+    border-top: 2px solid #b59a62;
 
     transform: rotate(5deg);
 
@@ -248,7 +248,7 @@ main {
     margin-top: 8px;
 
     font-size: 10px;
-    color: #626a75;
+    color: #646464;
 }
 
 
@@ -260,7 +260,7 @@ main {
 
     padding: 11px 0;
 
-    border-bottom: 1px solid #242930;
+    border-bottom: 1px solid #2b2b2b;
 
     font-size: 13px;
 }
@@ -270,7 +270,7 @@ main {
 }
 
 .angle-row span:last-child {
-    color: #dce1e7;
+    color: #d4d4d4;
 }
 
 
@@ -286,14 +286,14 @@ footer {
 
     padding: 0 32px;
 
-    background: #101318;
-    border-top: 1px solid #252930;
+    background: #181818;
+    border-top: 1px solid #292929;
 
-    color: #737b86;
+    color: #707070;
 
     font-size: 11px;
 }
 
 footer span:first-child {
-    color: #38d27b;
+    color: #8fae8b;
 }
