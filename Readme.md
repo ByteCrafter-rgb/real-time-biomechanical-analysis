@@ -3,11 +3,21 @@
 A real-time desktop application that estimates human joint angles from a
 single monocular webcam.
 
-Built with **Python + MediaPipe + Electron**, the system performs local pose
+Built with ```Python + MediaPipe + Electron```, the system performs local pose
 estimation, biomechanical calculations, temporal smoothing, and real-time
 visualization.
 
-> **30–31 FPS end-to-end @ 640×480**
+**30 FPS end-to-end at 640×480**
+
+## Architecture
+
+![System Architecture](docs/architecture.png)
+
+Python handles the complete real-time processing pipeline:
+
+**Camera → Pose Estimation → Joint Geometry → Filtering → WebSocket**
+
+Electron acts as the desktop presentation layer.
 
 ---
 
@@ -53,18 +63,6 @@ Electron automatically starts the Python backend and opens the application. The 
 | Ankle | Dorsiflexion / Plantarflexion |
 
 Measurements are calculated bilaterally where applicable.
-
----
-
-## Architecture
-
-![System Architecture](docs/architecture.png)
-
-Python handles the complete real-time processing pipeline:
-
-**Camera → Pose Estimation → Joint Geometry → Filtering → WebSocket**
-
-Electron acts as the desktop presentation layer.
 
 ---
 
