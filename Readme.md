@@ -23,6 +23,8 @@ Electron acts as the desktop presentation layer.
 
 ## Demo
 
+[Watch Demo](https://drive.google.com/file/d/187g27ayK2l2iBBss_OV5mgBlXoldnnBt/view?usp=sharing)
+
 <!-- Add screenshot / GIF / short demo video here -->
 
 
